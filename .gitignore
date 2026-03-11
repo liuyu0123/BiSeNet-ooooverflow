@@ -4,4 +4,4 @@ runs
 img/*
 result/*
 *results/*
-dataset/water_seg
+dataset/water_seg*

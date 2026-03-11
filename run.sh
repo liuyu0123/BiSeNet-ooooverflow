@@ -8,6 +8,9 @@ python eval.py
 python demo.py
 
 ######################## 水域分割 ########################
+#Mask批量重命名
+python ./tools/rename_mask_imgs.py ./dataset/water_seg2/masks
+
 #数据集预处理(划分)
 python ./tools/split_dataset.py `
     --root_dir ./dataset/water_seg  `
@@ -19,6 +22,7 @@ python ./tools/generate_class_dict.py  --output_path ./dataset/water_seg/class_d
 
 #模型训练
 python train_water.py --data_root ./dataset/water_seg --num_epochs 5 --batch_size 4 --context_path resnet18
+python train_water.py --data_root ./dataset/water_seg2 --num_epochs 5 --batch_size 4 --context_path resnet18
 
 #模型评估
 python eval_water.py --model_path ./checkpoints_water/best_water_seg.pth --data_root ./dataset/water_seg --split val
