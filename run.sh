@@ -22,6 +22,7 @@ python ./tools/generate_class_dict.py  --output_path ./dataset/water_seg/class_d
 
 #模型训练
 python train_water.py --data_root ./dataset/water_seg --num_epochs 5 --batch_size 4 --context_path resnet18
+#使用数据集2(黑白的mask, 实际上使用黑红的mask就能够训练成功并且成功eval和demo)
 python train_water.py --data_root ./dataset/water_seg2 --num_epochs 5 --batch_size 4 --context_path resnet18
 
 #模型评估
