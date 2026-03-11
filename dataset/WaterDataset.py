@@ -80,7 +80,7 @@ class WaterDataset(Dataset):
         # 二值化处理：假设非水是0，水是>0的任何值 (如1或255)
         # 如果你的数据里水是255，这里会自动变成1.0 (因为后面ToTensor会除以255)
         # 为了保险，我们手动确保只有0和1
-        binary_mask = (mask_np > 0).astype(np.uint8)
+        binary_mask = (mask_np > 0).astype(np.uint8) * 255
         mask = Image.fromarray(binary_mask)
         
         # 4. 应用变换
