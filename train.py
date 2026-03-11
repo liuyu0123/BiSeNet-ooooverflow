@@ -29,13 +29,15 @@ def val(args, model, dataloader):
             # get RGB predict image
             predict = model(data).squeeze()
             predict = reverse_one_hot(predict)
-            predict = np.array(predict)
+            # predict = np.array(predict)
+            predict = predict.cpu().numpy()
 
             # get RGB label image
             label = label.squeeze()
             if args.loss == 'dice':
                 label = reverse_one_hot(label)
-            label = np.array(label)
+            # label = np.array(label)
+            label = label.cpu().numpy()
 
             # compute per pixel accuracy
 
@@ -98,7 +100,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path)
+                os.makedirs(args.save_model_path)
             torch.save(model.module.state_dict(),
                        os.path.join(args.save_model_path, 'latest_dice_loss.pth'))
 
@@ -106,6 +108,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
             precision, miou = val(args, model, dataloader_val)
             if miou > max_miou:
                 max_miou = miou
+                if not os.path.isdir(args.save_model_path):
+                    os.makedirs(args.save_model_path)
                 torch.save(model.module.state_dict(),
                            os.path.join(args.save_model_path, 'best_dice_loss.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
@@ -194,9 +198,9 @@ def main(params):
 
 if __name__ == '__main__':
     params = [
-        '--num_epochs', '1000',
+        '--num_epochs', '10',
         '--learning_rate', '2.5e-2',
-        '--data', '/path/to/CamVid',
+        '--data', 'D:/Files/Data/CamVid',
         '--num_workers', '8',
         '--num_classes', '12',
         '--cuda', '0',
