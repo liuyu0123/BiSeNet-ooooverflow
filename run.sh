@@ -24,6 +24,15 @@ python ./tools/generate_class_dict.py  --output_path ./dataset/water_seg/class_d
 python train_water.py --data_root ./dataset/water_seg --num_epochs 5 --batch_size 4 --context_path resnet18
 #使用数据集2(黑白的mask, 实际上使用黑红的mask就能够训练成功并且成功eval和demo)
 python train_water.py --data_root ./dataset/water_seg2 --num_epochs 5 --batch_size 4 --context_path resnet18
+#模型训练（水域分割，train与val分离）✅
+python train_water_val.py `
+    --images D:\Files\Data\IRWSB\train\images `
+    --masks D:\Files\Data\IRWSB\train\masks_white_noSuffix `
+    --val-images D:\Files\Data\IRWSB\val\images `
+    --val-masks D:\Files\Data\IRWSB\val\masks_white_noSuffix `
+    --num_epochs 5 `
+    --batch_size 4 `
+    --context_path resnet18
 
 #模型评估
 python eval_water.py --model_path ./checkpoints_water/best_water_seg.pth --data_root ./dataset/water_seg --split val
