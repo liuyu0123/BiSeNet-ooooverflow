@@ -36,6 +36,12 @@ python train_water_val.py `
 
 #模型评估
 python eval_water.py --model_path ./checkpoints_water/best_water_seg.pth --data_root ./dataset/water_seg --split val
+#模型评估（水域分割，test路径输入）
+python eval_water_val.py `
+    --model_path ./checkpoints_water/best_water_seg.pth `
+    --test-images D:\Files\Data\IRWSB\test\images `
+    --test-masks D:\Files\Data\IRWSB\test\masks_white_noSuffix `
+    --save_pred_path ./eval_results
 
 #模型预测(单张图片推理)
 python demo_water.py --model_path ./checkpoints_water/best_water_seg.pth --input_path ./img/H05_1_0000000000.jpg --output_dir ./demo_results
