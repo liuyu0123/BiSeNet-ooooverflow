@@ -34,6 +34,21 @@ python train_water_val.py `
     --batch_size 4 `
     --context_path resnet18
 
+#模型训练(pro)
+python train_water_val_pro.py `
+    --images D:\Files\Data\IRWSB\train\images `
+    --masks D:\Files\Data\IRWSB\train\masks_red `
+    --val-images D:\Files\Data\IRWSB\val\images `
+    --val-masks D:\Files\Data\IRWSB\val\masks_red `
+    --epochs 5 `
+    --batch-size 4 `
+    --learning-rate 5e-4 `
+    --model-dir checkpoints/experiment1 `
+    --log-dir logs/experiment1 `
+    --model-name experiment1 `
+    --log-name experiment1 `
+    --save-interval 5
+
 #模型评估
 python eval_water.py --model_path ./checkpoints_water/best_water_seg.pth --data_root ./dataset/water_seg --split val
 #模型评估（水域分割，test路径输入）

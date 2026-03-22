@@ -5,3 +5,5 @@ img/*
 result/*
 *results/*
 dataset/water_seg*
+checkpoints/
+logs/
