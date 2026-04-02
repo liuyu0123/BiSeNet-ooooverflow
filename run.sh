@@ -47,7 +47,7 @@ python train_water_val_pro.py `
     --log-dir logs/experiment1 `
     --model-name experiment1 `
     --log-name experiment1 `
-    --save-interval 5
+    --save-interval 0
 
 #模型评估
 python eval_water.py --model_path ./checkpoints_water/best_water_seg.pth --data_root ./dataset/water_seg --split val

@@ -87,7 +87,7 @@ class MetricsLogger:
         self.header = [
             'epoch',
             'train_loss', 'train_precision', 'train_recall', 'train_f1', 'train_miou',
-            'val_precision', 'val_recall', 'val_f1', 'val_miou',
+            'val_loss', 'val_precision', 'val_recall', 'val_f1', 'val_miou',
             'inference_time_ms', 'fps', 'learning_rate'
         ]
         
@@ -97,7 +97,7 @@ class MetricsLogger:
             writer.writeheader()
         print(f"日志文件初始化: {self.save_path}")
         
-    def log_epoch(self, epoch, train_loss, train_metrics, val_metrics, 
+    def log_epoch(self, epoch, train_loss, train_metrics, val_loss, val_metrics,
                   inference_time_ms, fps, lr):
         """记录一轮数据并立即写入文件（追加模式）"""
         row = {
@@ -107,6 +107,7 @@ class MetricsLogger:
             'train_recall': f"{train_metrics.get('recall', 0):.6f}",
             'train_f1': f"{train_metrics.get('f1', 0):.6f}",
             'train_miou': f"{train_metrics.get('miou', 0):.6f}",
+            'val_loss': f"{val_loss:.6f}",
             'val_precision': f"{val_metrics.get('precision', 0):.6f}",
             'val_recall': f"{val_metrics.get('recall', 0):.6f}",
             'val_f1': f"{val_metrics.get('f1', 0):.6f}",
@@ -144,7 +145,7 @@ class MetricsLogger:
             f.write(f"Save Interval: {self.args.save_interval}\n")
 
 
-def val(args, model, dataloader):
+def val(args, model, dataloader, loss_func):
     """验证函数"""
     print('开始验证...')
     model.eval()
@@ -154,6 +155,8 @@ def val(args, model, dataloader):
     # 测量推理时间
     inference_times = []
     total_images = 0
+    total_loss = 0.0
+    loss_count = 0
     
     with torch.no_grad():
         for i, (data, label) in enumerate(tqdm.tqdm(dataloader, desc='Val')):
@@ -172,38 +175,61 @@ def val(args, model, dataloader):
                 torch.cuda.synchronize()
             inference_times.append(time.time() - start_time)
             
-            predict = outputs[0]
+            # 处理不同数量的输出（训练时3个，验证/推理时可能1个）
+            if isinstance(outputs, (list, tuple)) and len(outputs) == 3:
+                output, output_sup1, output_sup2 = outputs
+                # 计算三个损失的加权和（与训练时保持一致）
+                loss1 = loss_func(output, label)
+                loss2 = loss_func(output_sup1, label)
+                loss3 = loss_func(output_sup2, label)
+                loss = loss1 + loss2 + loss3
+            else:
+                # 如果只有一个输出，直接计算损失
+                output = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+                loss = loss_func(output, label)
             
-            # 使用 reverse_one_hot 处理
-            predict = reverse_one_hot(predict)
-            predict = predict.cpu().numpy()
-            label = label.squeeze().cpu().numpy()
-
-            precision = compute_global_accuracy(predict, label)
-            precision_record.append(precision)
+            total_loss += loss.item()
+            loss_count += 1
             
-            hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
-            total_images += data.size(0)
+            # ==== 关键修改：处理 batch 维度 ====
+            # 验证时 batch_size=1，需要遍历 batch 中的每个样本
+            batch_size = output.size(0)
+            for b in range(batch_size):
+                single_output = output[b]  # [C, H, W]
+                single_label = label[b]    # [H, W] 或 [1, H, W]
+                
+                # 使用 reverse_one_hot 处理单个样本
+                pred = reverse_one_hot(single_output)
+                pred = pred.cpu().numpy()
+                
+                # 处理 label 的维度（可能是 [1, H, W] 或 [H, W]）
+                label_np = single_label.squeeze().cpu().numpy()
 
-    # 计算指标
+                precision = compute_global_accuracy(pred, label_np)
+                precision_record.append(precision)
+                
+                hist += fast_hist(label_np.flatten(), pred.flatten(), args.num_classes)
+            
+            total_images += batch_size
+
+    # 计算指标（后续代码保持不变）
     precision = np.mean(precision_record)
     miou_list = per_class_iu(hist)
     miou = np.mean(miou_list)
     
-    # 计算详细指标
     detailed_metrics = compute_metrics_from_hist(hist, args.num_classes)
     
-    # 计算推理时间
     avg_inference_time_ms = np.mean(inference_times) * 1000
     fps = total_images / sum(inference_times) if sum(inference_times) > 0 else 0
     
-    print(f'验证精度: {precision:.4f}, mIoU: {miou:.4f}')
+    avg_val_loss = total_loss / loss_count if loss_count > 0 else 0.0
+    
+    print(f'验证精度: {precision:.4f}, mIoU: {miou:.4f}, 验证损失: {avg_val_loss:.6f}')
     print(f'各类IoU: {miou_list}')
     print(f'推理时间: {avg_inference_time_ms:.2f} ms, FPS: {fps:.2f}')
     
     model.train()
     
-    # 返回完整指标
     metrics = {
         'precision': detailed_metrics['precision'],
         'recall': detailed_metrics['recall'],
@@ -212,7 +238,7 @@ def val(args, model, dataloader):
         'acc': precision,
     }
     
-    return metrics, avg_inference_time_ms, fps
+    return metrics, avg_inference_time_ms, fps, avg_val_loss
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, metrics_logger):
@@ -292,15 +318,18 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, metrics_logg
 
         # 定期验证
         if (epoch + 1) % args.validation_step == 0:
-            val_metrics, inference_time_ms, fps = val(args, model, dataloader_val)
+            # 传递 loss_func 给 val 函数
+            val_metrics, inference_time_ms, fps, val_loss = val(args, model, dataloader_val, loss_func)
             writer.add_scalar('val_precision', val_metrics['acc'], epoch)
             writer.add_scalar('val_miou', val_metrics['miou'], epoch)
+            writer.add_scalar('val_loss', val_loss, epoch)  # 可选：也记录到 tensorboard
             
-            # 记录到CSV（实时写入）
+            # 记录到CSV（实时写入），添加 val_loss 参数
             metrics_logger.log_epoch(
                 epoch + 1,
                 avg_loss,
                 train_metrics,
+                val_loss,  # 传入验证损失
                 val_metrics,
                 inference_time_ms,
                 fps,
@@ -313,12 +342,13 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, metrics_logg
                 save_checkpoint(model, args.model_dir, f"{args.model_name}_best.pth")
                 print(f'  >>> 新的最佳模型! mIoU: {val_metrics["miou"]:.4f}')
         else:
-            # 不验证时也记录训练指标（验证指标为0）
+            # 不验证时也记录训练指标（验证指标为0，验证损失为0）
             empty_metrics = {'precision': 0, 'recall': 0, 'f1': 0, 'miou': 0}
             metrics_logger.log_epoch(
                 epoch + 1,
                 avg_loss,
                 train_metrics,
+                0.0,  # 验证损失为0
                 empty_metrics,
                 0,
                 0,
