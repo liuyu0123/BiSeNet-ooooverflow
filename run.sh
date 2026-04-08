@@ -63,3 +63,27 @@ python eval_water_val.py `
 python demo_water.py --model_path ./checkpoints_water/best_water_seg.pth --input_path ./img/H05_1_0000000000.jpg --output_dir ./demo_results
 #模型预测(整个文件夹)
 python demo_water.py --model_path ./checkpoints_water/best_water_seg.pth --input_path ./img --output_dir ./demo_results
+
+
+#模型推理pro（生成红色mask蒙版和csv评价指标）
+#单图推理（无真值，仅保存可视化）：
+python eval_water_val_pro.py `
+    --model_path ./checkpoints/water_model.pth `
+    --input ./test_images/sample1.jpg `
+    --output ./eval_results_pro `
+    --alpha 0.5
+
+#文件夹批量推理（有真值，生成CSV）：
+python eval_water_val_pro.py `
+    --model_path "F:\AAA\9_bisenet_best\experiment1\experiment1_last.pth" `
+    --input "D:\Files\Data\IRWSB\analyse\images" `
+    --ground_truth "D:\Files\Data\IRWSB\analyse\masks_white_noSuffix" `
+    --output ./eval_results_pro `
+    --crop_height 360 `
+    --crop_width 480
+
+# 仅打印结果（不保存文件）：
+python eval_water_val_pro.py `
+    --model_path ./checkpoints/water_model.pth `
+    --input "D:\Files\Data\IRWSB\analyse\images" `
+    --ground_truth "D:\Files\Data\IRWSB\analyse\masks_white_noSuffix"
