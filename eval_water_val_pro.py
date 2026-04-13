@@ -115,8 +115,8 @@ def save_results_to_csv(per_image_results, overall_metrics, model_info, args, sa
         writer = csv.writer(f)
         
         # 写入表头
-        writer.writerow(['filename', 'precision', 'recall', 'f1', 'miou', 'accuracy', 'inference_time_ms'])
-        
+        writer.writerow(['filename', 'precision', 'recall', 'f1', 'miou', 'accuracy', 'inference_time_ms', 'fps'])
+
         # 写入每幅图的结果
         for result in per_image_results:
             writer.writerow([
@@ -126,20 +126,22 @@ def save_results_to_csv(per_image_results, overall_metrics, model_info, args, sa
                 f"{result['f1']:.6f}",
                 f"{result['miou']:.6f}",
                 f"{result['acc']:.6f}",
-                f"{result['inference_time_ms']:.4f}"
+                f"{result['inference_time_ms']:.4f}",
+                f"{result['fps']:.2f}"
             ])
-        
+
         # 空行分隔
         writer.writerow([])
-        
+
         # 写入整体平均指标
-        writer.writerow(['OVERALL_AVERAGE', 
+        writer.writerow(['OVERALL_AVERAGE',
                         f"{overall_metrics['precision']:.6f}",
-                        f"{overall_metrics['recall']:.6f}", 
+                        f"{overall_metrics['recall']:.6f}",
                         f"{overall_metrics['f1']:.6f}",
                         f"{overall_metrics['miou']:.6f}",
                         f"{overall_metrics['acc']:.6f}",
-                        f"{overall_metrics['inference_time_ms']:.4f}"])
+                        f"{overall_metrics['inference_time_ms']:.4f}",
+                        f"{overall_metrics['fps']:.2f}"])
         
         # 写入模型信息
         writer.writerow([])
@@ -272,7 +274,7 @@ def evaluate(args):
     print(f"Start processing {len(image_files)} images...")
 
     with torch.no_grad():
-        for img_path in tqdm.tqdm(image_files):
+        for idx, img_path in enumerate(tqdm.tqdm(image_files)):
             # 加载原图（用于可视化）
             original_image = Image.open(img_path).convert('RGB')
             orig_w, orig_h = original_image.size
@@ -283,13 +285,19 @@ def evaluate(args):
             if use_gpu:
                 input_tensor = input_tensor.cuda()
 
-            # 推理计时
+            # 对第一张图做 warmup，排除初始化开销，避免第一行计时结果异常
+            if idx == 0:
+                _ = model(input_tensor)
+                if use_gpu:
+                    torch.cuda.synchronize()
+
+            # 正式推理计时
             if use_gpu:
                 torch.cuda.synchronize()
             start_time = time.time()
-            
+
             outputs = model(input_tensor)
-            
+
             if use_gpu:
                 torch.cuda.synchronize()
             inference_time = (time.time() - start_time) * 1000  # 转换为ms
@@ -352,6 +360,7 @@ def evaluate(args):
                     img_metrics, hist = compute_metrics_per_image(predict_fullres, gt_np, args.num_classes)
                     img_metrics['filename'] = img_path.name
                     img_metrics['inference_time_ms'] = inference_time
+                    img_metrics['fps'] = 1000.0 / inference_time if inference_time > 0 else 0.0
                     img_metrics['acc'] = img_metrics['acc']  # 确保字段名一致
                     
                     per_image_results.append(img_metrics)
@@ -366,7 +375,8 @@ def evaluate(args):
                         'f1': float('nan'),
                         'miou': float('nan'),
                         'acc': float('nan'),
-                        'inference_time_ms': inference_time
+                        'inference_time_ms': inference_time,
+                        'fps': 1000.0 / inference_time if inference_time > 0 else 0.0
                     })
 
     # 6. 计算整体指标（如果有真值）
@@ -382,6 +392,7 @@ def evaluate(args):
                 'miou': np.mean([r['miou'] for r in valid_results]),
                 'acc': np.mean([r['acc'] for r in valid_results]),
                 'inference_time_ms': total_inference_time / len(image_files),
+                'fps': 1000.0 / (total_inference_time / len(image_files)) if total_inference_time > 0 else 0.0,
                 'total_images': len(image_files),
                 'test_time_total_s': total_inference_time / 1000
             }
