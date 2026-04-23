@@ -92,7 +92,7 @@ def one_hot_it_v11_dice(label, label_info):
 			class_map = np.all(equality, axis=-1)
 			void[class_map] = 1
 	semantic_map.append(void)
-	semantic_map = np.stack(semantic_map, axis=-1).astype(np.float)
+	semantic_map = np.stack(semantic_map, axis=-1).astype(np.float64)
 	return semantic_map
 
 def reverse_one_hot(image):

@@ -24,13 +24,15 @@ def eval(model,dataloader, args, csv_path):
                 label = label.cuda()
             predict = model(data).squeeze()
             predict = reverse_one_hot(predict)
-            predict = np.array(predict)
+            # predict = np.array(predict)
+            predict = predict.cpu().numpy()
             # predict = colour_code_segmentation(np.array(predict), label_info)
 
             label = label.squeeze()
             if args.loss == 'dice':
                 label = reverse_one_hot(label)
-            label = np.array(label)
+            # label = np.array(label)
+            label = label.cpu().numpy()
             # label = colour_code_segmentation(np.array(label), label_info)
 
             precision = compute_global_accuracy(predict, label)
@@ -95,8 +97,8 @@ def main(params):
 
 if __name__ == '__main__':
     params = [
-        '--checkpoint_path', 'path/to/ckpt',
-        '--data', '/path/to/CamVid',
+        '--checkpoint_path', './checkpoints_18_sgd/best_dice_loss.pth',
+        '--data', 'D:/Files/Data/CamVid',
         '--cuda', '0',
         '--context_path', 'resnet18',
         '--num_classes', '12'

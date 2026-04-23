@@ -26,7 +26,9 @@ def predict_on_image(model, args):
     model.eval()
     predict = model(image).squeeze()
     predict = reverse_one_hot(predict)
-    predict = colour_code_segmentation(np.array(predict), label_info)
+    predict = predict.cpu().numpy()
+    # predict = colour_code_segmentation(np.array(predict), label_info)
+    predict = colour_code_segmentation(predict, label_info)
     predict = cv2.resize(np.uint8(predict), (960, 720))
     cv2.imwrite(args.save_path, cv2.cvtColor(np.uint8(predict), cv2.COLOR_RGB2BGR))
 
@@ -71,11 +73,11 @@ def main(params):
 if __name__ == '__main__':
     params = [
         '--image',
-        '--data', 'exp.png',
-        '--checkpoint_path', '/path/to/ckpt',
+        '--data', 'img/0001TP_008550.png',
+        '--checkpoint_path', './checkpoints_18_sgd/best_dice_loss.pth',
         '--cuda', '0',
-        '--csv_path', '/data/sqy/CamVid/class_dict.csv',
-        '--save_path', 'demo.png',
+        '--csv_path', 'D:/Files/Data/CamVid/class_dict.csv',
+        '--save_path', 'result/demo.png',
         '--context_path', 'resnet18'
     ]
     main(params)

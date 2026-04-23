@@ -1,0 +1,11 @@
+__pycache__
+checkpoints*
+runs
+img/*
+result/*
+*results/*
+dataset/water_seg*
+checkpoints/
+logs/
+logs*/
+eval_results_pro
